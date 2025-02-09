@@ -5,6 +5,10 @@ from PIL.ExifTags import TAGS, GPSTAGS
 from tqdm import tqdm
 import cv2
 import termcolor
+from mtcnn import MTCNN
+
+# Initialize MediaPipe Face Detection
+detector = MTCNN()
 
 # Function to get the date from EXIF metadata
 def get_exif_date(image_path):
@@ -80,7 +84,7 @@ def crop_and_offset(y, h_, H):
     y0 -= off
     return y0, y1
 
-def crop_face(image_path, output_path, margin=0.3):
+def crop_face(image_path, output_path, margin=0.35):
     def _raise(msg):
         termcolor.cprint(f" {msg}", "red")
         cv2.imwrite(output_path, img)
@@ -88,25 +92,24 @@ def crop_face(image_path, output_path, margin=0.3):
     # Read the image
     img = cv2.imread(image_path)
     H, W, *_ = img.shape
-    
-    # Convert the image to grayscale (face detection works on grayscale images)
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    
-    # Detect faces in the image
-    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.01, minNeighbors=1, minSize=(1000, 1000))
+
+    # Convert the image to RGB (Mediapipe works with RGB images)
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+    # Detect faces
+    faces = detector.detect_faces(img_rgb)
     
     if len(faces) == 0:
         return _raise(f"No face detected in the image {image_path}")
     
     # Assume the first face is the main one
-    areas = [f[2] * f[3] for f in faces]
-    x, y, w, h = faces[areas.index(max(areas))]
+    areas = [f["box"][2] * f["box"][3] for f in faces]
+    x, y, w, h = faces[areas.index(max(areas))]["box"]
+    x, y, = x + w/2,  y + h/2
 
     h = max(H * 0.75 / (1 + 2 * margin), h )
     w = max(W * 0.75 / (1 + 2 * margin), h )
 
-    x, y, = x + w/2,  y + h/2
-    
     y0 = max(0, y - h * (1/2 + margin))
     y1 = min(H, y + h * (1/2 + margin))
 
