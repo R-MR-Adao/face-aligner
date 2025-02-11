@@ -6,6 +6,7 @@ from tqdm import tqdm
 import cv2
 import termcolor
 from mtcnn import MTCNN
+import math
 
 # Initialize MediaPipe Face Detection
 detector = MTCNN()
@@ -59,9 +60,6 @@ def add_watermark(image_path, output_path, watermark_text, fontsize=200):
     # Save the new image
     img.save(output_path)
 
-
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-
 def crop_and_offset(y, h_, H):
     y0 = int(y - h_/2)
 
@@ -84,7 +82,7 @@ def crop_and_offset(y, h_, H):
     y0 -= off
     return y0, y1
 
-def crop_face(image_path, output_path, margin=0.35):
+def crop_face(image_path, output_path, margin=0.35, eye_scale=0.11):
     def _raise(msg):
         termcolor.cprint(f" {msg}", "red")
         cv2.imwrite(output_path, img)
@@ -104,7 +102,62 @@ def crop_face(image_path, output_path, margin=0.35):
     
     # Assume the first face is the main one
     areas = [f["box"][2] * f["box"][3] for f in faces]
-    x, y, w, h = faces[areas.index(max(areas))]["box"]
+    face = faces[areas.index(max(areas))]
+    
+    left_eye = face['keypoints']['left_eye']
+    right_eye = face['keypoints']['right_eye']
+    nose = face['keypoints']['nose']
+    mouth_left = face['keypoints']['mouth_left']
+    mouth_right = face['keypoints']['mouth_right']
+
+    # Calculate the rotation angle
+    target_left_eye =    (W * (0.5 - 0.103) , H * (0.5 + 0.0547))
+    target_right_eye=    (W * (0.5 + 0.103) , H * 0.5 + 0.0547)
+    target_nose =        (W * 0.5           , H * (0.5 + 0.128))
+    target_mouth_left =  (W * (0.5 - 0.0569), H * (0.5 + 0.264))
+    target_mouth_right = (W * (0.5 + 0.0569), H * (0.5 + 0.264))
+
+    left_eye = face['keypoints']['left_eye']
+    right_eye = face['keypoints']['right_eye']
+    nose = face['keypoints']['nose']
+    mouth_left = face['keypoints']['mouth_left']
+    mouth_right = face['keypoints']['mouth_right']
+
+    # Calculate the distance between the eyes in both the original and target images
+    original_eye_distance = math.sqrt((right_eye[0] - left_eye[0])**2 + (right_eye[1] - left_eye[1])**2)
+    target_eye_distance = math.sqrt((target_right_eye[0] - target_left_eye[0])**2 + (target_right_eye[1] - target_left_eye[1])**2)
+
+    # Scaling factor based on eye distance
+    scale_factor = target_eye_distance / original_eye_distance
+
+    # Calculate the angle of rotation using the eyes
+    dx = right_eye[0] - left_eye[0]
+    dy = right_eye[1] - left_eye[1]
+    angle = math.degrees(math.atan2(dy, dx))
+
+    # Calculate the center of the landmarks (eyes, nose, and mouth corners)
+    center_x = (left_eye[0] + right_eye[0] + nose[0] + mouth_left[0] + mouth_right[0]) / 5
+    center_y = (left_eye[1] + right_eye[1] + nose[1] + mouth_left[1] + mouth_right[1]) / 5
+
+    # Calculate the center of the target landmarks
+    target_center_x = (target_left_eye[0] + target_right_eye[0] + target_nose[0] + target_mouth_left[0] + target_mouth_right[0]) / 5
+    target_center_y = (target_left_eye[1] + target_right_eye[1] + target_nose[1] + target_mouth_left[1] + target_mouth_right[1]) / 5
+
+    # Calculate the translation needed to move the center of the landmarks to the target center
+    translation_x = target_center_x - center_x
+    translation_y = target_center_y - center_y
+
+    # Get the rotation matrix
+    M = cv2.getRotationMatrix2D((center_x, center_y), angle, scale_factor)
+
+    # Add translation to the rotation matrix
+    M[0, 2] += translation_x
+    M[1, 2] += translation_y
+
+    # Apply the affine transformation to align the face
+    aligned_img = cv2.warpAffine(img, M, (W, H))
+    """
+    x, y, w, h = face
     x, y, = x + w/2,  y + h/2
 
     h = max(H * 0.75 / (1 + 2 * margin), h )
@@ -130,9 +183,10 @@ def crop_face(image_path, output_path, margin=0.35):
        
     # Crop the image around the face
     cropped_face = img[y0:y1, x0:x1]
+    """
 
     termcolor.cprint(f" Successfully processed {image_path}", "green")    
-    cv2.imwrite(output_path, cropped_face)
+    cv2.imwrite(output_path, aligned_img)
 
 def process_images(folder_path):
     # Ensure the output folder exists
