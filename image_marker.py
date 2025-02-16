@@ -7,6 +7,7 @@ import cv2
 import termcolor
 from mtcnn import MTCNN
 import math
+import numpy as np
 
 # Initialize MediaPipe Face Detection
 detector = MTCNN()
@@ -155,38 +156,44 @@ def crop_face(image_path, output_path, margin=0.35, eye_scale=0.11):
     M[1, 2] += translation_y
 
     # Apply the affine transformation to align the face
-    aligned_img = cv2.warpAffine(img, M, (W, H))
-    """
-    x, y, w, h = face
-    x, y, = x + w/2,  y + h/2
-
-    h = max(H * 0.75 / (1 + 2 * margin), h )
-    w = max(W * 0.75 / (1 + 2 * margin), h )
-
-    y0 = max(0, y - h * (1/2 + margin))
-    y1 = min(H, y + h * (1/2 + margin))
-
-    h_ = y1 - y0                # new height
-    w_ = min(W, W / H * h_)     # new width
-    
-    if h_ < 0 or w_ < 0:
-        return _raise(f"Failed to crop image {image_path}")
-    
-    h_ = H / W * w_             # restrict height
-    
-    # Add margin around the detected face, but stay within the image bounds
-    y0, y1 = crop_and_offset(y, h_, H)
-    x0, x1 = crop_and_offset(x, w_, W)
-
-    if x1 <= x0 or y1 <= y0:
-        return _raise(f"Crop resulted in empty image for {image_path}")
-       
-    # Crop the image around the face
-    cropped_face = img[y0:y1, x0:x1]
-    """
+    aligned_img = cv2.warpAffine(img, M, (W, H), borderValue=(0, 255, 0))
 
     termcolor.cprint(f" Successfully processed {image_path}", "green")    
     cv2.imwrite(output_path, aligned_img)
+
+    return M
+
+def replace_background(image_path, output_path, rotation_matrix, scale_factor=1.5, blur_size=(501,501)):
+
+    img = cv2.imread(image_path)
+    h, w = img.shape[:2]
+
+    # Create a mask for non-black regions of the rotated image
+    mask = (img[:,:,0] - 0 <= 40) & (img[:,:,1] >= 215) & (img[:,:,2] <= 40)
+
+    if np.sum(mask) == 0:
+        return
+
+    # Magnify the rotated image
+    cos_val = abs(rotation_matrix[0, 0])
+    sin_val = abs(rotation_matrix[0, 1])
+    new_w = int((h * sin_val) + (w * cos_val))
+    new_h = int((h * cos_val) + (w * sin_val))
+    
+    magnified_size = (int(new_w * scale_factor), int(new_h * scale_factor))
+    magnified_image = cv2.resize(img, magnified_size, interpolation=cv2.INTER_LINEAR)
+
+    # Blur the magnified image
+    blurred_background = cv2.blur(magnified_image, blur_size)
+
+    # Center crop the blurred image to match rotated image size
+    hb, wb, *_ = blurred_background.shape
+    x0, y0 = int((wb - w) / 2), int((hb - h) / 2)
+    cropped_background = blurred_background[y0:y0 + h, x0: x0 + w]
+
+    # Blend the rotated image with the background using the mask
+    img_back = np.where(mask[..., None], cropped_background, img)
+    cv2.imwrite(output_path, img_back)
 
 def process_images(folder_path):
     # Ensure the output folder exists
@@ -207,7 +214,10 @@ def process_images(folder_path):
         output_path = os.path.join(output_folder, filename)
 
         # crop image around face
-        crop_face(image_path, output_path)
+        rotation_matrix = crop_face(image_path, output_path)
+
+        # add blurred background
+        replace_background(output_path, output_path, rotation_matrix)
         
         # add date watermark
         # Get the date from EXIF metadata
