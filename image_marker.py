@@ -8,6 +8,8 @@ import termcolor
 from mtcnn import MTCNN
 import math
 import numpy as np
+import sys
+import shutil
 
 # Initialize MediaPipe Face Detection
 detector = MTCNN()
@@ -195,7 +197,7 @@ def replace_background(image_path, output_path, rotation_matrix, scale_factor=1.
     img_back = np.where(mask[..., None], cropped_background, img)
     cv2.imwrite(output_path, img_back)
 
-def process_images(folder_path):
+def process_images(folder_path, apply_crop:bool=True, font_size:int=200):
     # Ensure the output folder exists
     output_folder = os.path.join(folder_path, "processed")
     if not os.path.exists(output_folder):
@@ -214,16 +216,20 @@ def process_images(folder_path):
         output_path = os.path.join(output_folder, filename)
 
         # crop image around face
-        rotation_matrix = crop_face(image_path, output_path)
+        if apply_crop:
+            rotation_matrix = crop_face(image_path, output_path)
 
-        # add blurred background
-        replace_background(output_path, output_path, rotation_matrix)
+            # add blurred background
+            replace_background(output_path, output_path, rotation_matrix)
+        
+        else:
+            shutil.copyfile(image_path, output_path)
         
         # add date watermark
         # Get the date from EXIF metadata
         exif_date = get_exif_date(image_path)
         watermark_text = exif_date if exif_date else "Unknown Date"  # Fallback text if no date found
-        add_watermark(output_path, output_path, watermark_text)
+        add_watermark(output_path, output_path, watermark_text, font_size)
 
 # Function to open a folder dialog to select folder path
 def select_folder():
@@ -234,8 +240,12 @@ def select_folder():
 
 # Main script
 if __name__ == "__main__":
+    # get execution arguments
+    apply_crop = eval(sys.argv[1]) if len(sys.argv) > 1 else True
+    font_size = eval(sys.argv[2]) if len(sys.argv) > 2 else 200
+
     folder_path = select_folder()  # Ask user to select folder
     if folder_path:
-        process_images(folder_path)
+        process_images(folder_path, apply_crop, font_size)
     else:
         print("No folder selected, exiting.")
