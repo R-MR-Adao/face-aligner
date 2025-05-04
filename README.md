@@ -53,4 +53,4 @@ Processed images are saved in a subfolder named processed/ inside the original i
 - Background Enhancement (optional): Creates a blurred, magnified version of the image to fill black or green-screened areas.
 
 # 📝 License
-MIT License. See [LICENSE](license.txt) for details.
+MIT License. See [License](License.txt) for details.
