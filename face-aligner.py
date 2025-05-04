@@ -16,6 +16,16 @@ detector = MTCNN()
 
 # Function to get the date from EXIF metadata
 def get_exif_date(image_path):
+    """
+    Extracts the original date from the EXIF metadata of an image.
+
+    Args:
+        image_path (str): Path to the image file.
+
+    Returns:
+        str or None: The original date in 'YYYY-MM-DD' format if available, otherwise None.
+    """
+
     try:
         # Open the image and get the EXIF data
         img = Image.open(image_path)
@@ -34,6 +44,16 @@ def get_exif_date(image_path):
 
 # Function to add watermark
 def add_watermark(image_path, output_path, watermark_text, fontsize=200):
+    """
+    Adds a text watermark (typically a date) to the top-right corner of an image.
+
+    Args:
+        image_path (str): Path to the input image.
+        output_path (str): Path to save the watermarked image.
+        watermark_text (str): Text to use as the watermark.
+        fontsize (int, optional): Font size of the watermark text. Default is 200.
+    """
+
     # Open the image
     img = Image.open(image_path)
 
@@ -64,6 +84,18 @@ def add_watermark(image_path, output_path, watermark_text, fontsize=200):
     img.save(output_path)
 
 def crop_and_offset(y, h_, H):
+    """
+    Calculates top and bottom Y-coordinates for cropping with boundary checks and offset correction.
+
+    Args:
+        y (int): Y-coordinate of the crop center.
+        h_ (float): Height of the crop box.
+        H (int): Total image height.
+
+    Returns:
+        tuple: (y0, y1) bounds for cropping within the image height.
+    """
+
     y0 = int(y - h_/2)
 
     if y0 < 0:
@@ -86,6 +118,20 @@ def crop_and_offset(y, h_, H):
     return y0, y1
 
 def crop_face(image_path, output_path, margin=0.35, eye_scale=0.11):
+    """
+    Detects a face in an image, aligns it based on key landmarks, and saves the aligned image.
+
+    Args:
+        image_path (str): Path to the input image.
+        output_path (str): Path to save the aligned image.
+        margin (float, optional): Unused in this version; reserved for cropping margin.
+        eye_scale (float, optional): Unused in this version; reserved for scaling based on eye distance.
+
+    Returns:
+        numpy.ndarray or None: Affine transformation matrix used to align the face,
+                            or None if no face was detected.
+    """
+
     def _raise(msg):
         termcolor.cprint(f" {msg}", "red")
         cv2.imwrite(output_path, img)
@@ -166,6 +212,17 @@ def crop_face(image_path, output_path, margin=0.35, eye_scale=0.11):
     return M
 
 def replace_background(image_path, output_path, rotation_matrix, scale_factor=1.5, blur_size=(501,501)):
+    """
+    Replaces the background of an image with a blurred and magnified version,
+    based on a green-colored mask area created during face alignment.
+
+    Args:
+        image_path (str): Path to the aligned face image.
+        output_path (str): Path to save the image with replaced background.
+        rotation_matrix (numpy.ndarray): The affine matrix from face alignment.
+        scale_factor (float, optional): Magnification factor for background. Default is 1.5.
+        blur_size (tuple, optional): Kernel size for background blurring. Default is (501, 501).
+    """
 
     img = cv2.imread(image_path)
     h, w = img.shape[:2]
@@ -198,6 +255,16 @@ def replace_background(image_path, output_path, rotation_matrix, scale_factor=1.
     cv2.imwrite(output_path, img_back)
 
 def process_images(folder_path, apply_crop:bool=True, font_size:int=200):
+    """
+    Processes all images in a folder: applies face alignment, background replacement,
+    and adds date watermarks.
+
+    Args:
+        folder_path (str): Path to the folder containing images.
+        apply_crop (bool, optional): Whether to perform face alignment. Default is True.
+        font_size (int, optional): Font size for watermark text. Default is 200.
+    """
+
     # Ensure the output folder exists
     output_folder = os.path.join(folder_path, "processed")
     if not os.path.exists(output_folder):
@@ -233,6 +300,13 @@ def process_images(folder_path, apply_crop:bool=True, font_size:int=200):
 
 # Function to open a folder dialog to select folder path
 def select_folder():
+    """
+    Opens a dialog to select a folder using Tkinter.
+
+    Returns:
+        str: Path to the selected folder, or empty string if cancelled.
+    """
+
     root = Tk()
     root.withdraw()  # Hide the main window
     folder_path = filedialog.askdirectory(title="Select Image Folder")
