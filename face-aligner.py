@@ -254,7 +254,7 @@ def replace_background(image_path, output_path, rotation_matrix, scale_factor=1.
     img_back = np.where(mask[..., None], cropped_background, img)
     cv2.imwrite(output_path, img_back)
 
-def process_images(folder_path, apply_crop:bool=True, font_size:int=200):
+def process_images(folder_path, apply_crop:bool=True, add_date:bool=True, font_size:int=200):
     """
     Processes all images in a folder: applies face alignment, background replacement,
     and adds date watermarks.
@@ -262,6 +262,7 @@ def process_images(folder_path, apply_crop:bool=True, font_size:int=200):
     Args:
         folder_path (str): Path to the folder containing images.
         apply_crop (bool, optional): Whether to perform face alignment. Default is True.
+        add_date (bool, optional): Whether to add the date as a watermark to the phot's top right corner
         font_size (int, optional): Font size for watermark text. Default is 200.
     """
 
@@ -293,10 +294,11 @@ def process_images(folder_path, apply_crop:bool=True, font_size:int=200):
             shutil.copyfile(image_path, output_path)
         
         # add date watermark
-        # Get the date from EXIF metadata
-        exif_date = get_exif_date(image_path)
-        watermark_text = exif_date if exif_date else "Unknown Date"  # Fallback text if no date found
-        add_watermark(output_path, output_path, watermark_text, font_size)
+        if add_date:
+            # Get the date from EXIF metadata
+            exif_date = get_exif_date(image_path)
+            watermark_text = exif_date if exif_date else ""  # Fallback text if no date found
+            add_watermark(output_path, output_path, watermark_text, font_size)
 
 # Function to open a folder dialog to select folder path
 def select_folder():
@@ -314,12 +316,23 @@ def select_folder():
 
 # Main script
 if __name__ == "__main__":
+    """
+    Executing the script will first ask the user to browse to the source folder, then all
+    photos within will be processed and exported in ta "processed" folder
+
+    When launched, this script accepts  this script accepts the following arguments
+        apply_crop : whether to apply crop around the detected the 
+        add_date: whether to add photo date as a watermark on the photo top-right corner
+        font_size: font size of the watermark in pixels
+    """
     # get execution arguments
     apply_crop = eval(sys.argv[1]) if len(sys.argv) > 1 else True
-    font_size = eval(sys.argv[2]) if len(sys.argv) > 2 else 200
+    add_date = eval(sys.argv[2]) if len(sys.argv) > 2 else True
+    font_size = eval(sys.argv[3]) if len(sys.argv) > 3 else 200
 
     folder_path = select_folder()  # Ask user to select folder
     if folder_path:
-        process_images(folder_path, apply_crop, font_size)
+        process_images(folder_path, apply_crop, add_date, font_size)
+    
     else:
         print("No folder selected, exiting.")
