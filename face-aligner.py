@@ -117,14 +117,14 @@ def crop_and_offset(y, h_, H):
     y0 -= off
     return y0, y1
 
-def crop_face(image_path, output_path, margin=0.35, eye_scale=0.11):
+def crop_face(image_path:str, output_path:str,scale:float=0.9):
     """
     Detects a face in an image, aligns it based on key landmarks, and saves the aligned image.
 
     Args:
         image_path (str): Path to the input image.
         output_path (str): Path to save the aligned image.
-        margin (float, optional): Unused in this version; reserved for cropping margin.
+        scale (float, optional): Unused in this version; reserved for cropping margin.
         eye_scale (float, optional): Unused in this version; reserved for scaling based on eye distance.
 
     Returns:
@@ -177,7 +177,7 @@ def crop_face(image_path, output_path, margin=0.35, eye_scale=0.11):
     target_eye_distance = math.sqrt((target_right_eye[0] - target_left_eye[0])**2 + (target_right_eye[1] - target_left_eye[1])**2)
 
     # Scaling factor based on eye distance
-    scale_factor = target_eye_distance / original_eye_distance
+    scale_factor = target_eye_distance / original_eye_distance * scale
 
     # Calculate the angle of rotation using the eyes
     dx = right_eye[0] - left_eye[0]

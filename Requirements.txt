@@ -3,4 +3,5 @@ Pillow
 termcolor
 tqdm
 numpy
+tensorflow==2.15.0
 mtcnn
